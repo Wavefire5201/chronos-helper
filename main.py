@@ -1,6 +1,14 @@
-import os, logging
+import logging
+import datetime
+from discord.ui.item import Item
+import requests
 import discord
+from discord.ext import commands
+from rcon.source import rcon
 from dotenv import load_dotenv
+from config import *
+from utils import *
+from database import *
 
 # Basic setup
 load_dotenv()
@@ -11,9 +19,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 logger.info("Logging started")
+
 intents = discord.Intents.all()
 bot = discord.Bot(intents=intents)
-purple_color = discord.Color.from_rgb(94, 32, 216)
+EMBED_COLOR = discord.Color.from_rgb(51, 46, 185)
 
 
 @bot.event
@@ -24,7 +33,7 @@ async def on_ready():
 @bot.command(description="List of commands")
 async def help(ctx: discord.ApplicationContext):
     embed = discord.Embed(
-        title="Chronos Helper", description="List of commands", color=purple_color
+        title="Chronos Helper", description="List of commands.", color=EMBED_COLOR
     )
     embed.add_field(
         name="**/application**", value="Start a new application.", inline=False
@@ -41,7 +50,7 @@ async def on_member_join(member: discord.Member):
     logger.info(f"New member {member.name}({member.id}) joined.")
     await member.send(
         f"Welcome to Chronos SMP, {member.mention}! Please use /application or click the button to start a new application.",
-        view=ApplicationView(),
+        view=ApplicationView(timeout=None),
     )
 
 
@@ -86,7 +95,7 @@ class ApplicationModal(discord.ui.Modal):
 
     async def callback(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title=f"{interaction.user.name}'s Application", color=purple_color
+            title=f"{interaction.user.name}'s Application", color=EMBED_COLOR
         )
         embed.add_field(name=self.children[0].label, value=self.children[0].value)
         embed.add_field(name=self.children[1].label, value=self.children[1].value)
@@ -99,18 +108,44 @@ class ApplicationModal(discord.ui.Modal):
             icon_url=bot.user.avatar.url if bot.user.avatar else None,
         )
 
-        channel_id = os.getenv("APPLICATION_CHANNEL_ID")
-        channel = bot.get_channel(channel_id)
-        if channel:
-            logger.info("New application created")
-            logger.info(embed.to_dict())
-            await channel.send(
-                embeds=[embed], view=DecisionView(user_id=interaction.user.id)
-            )
+        mc_username = self.children[0].value
 
-        await interaction.response.send_message(
-            "Thanks for filling out the application!", ephemeral=True
-        )
+        if await check_minecraft_user(mc_username):
+            application_document = {
+                "username": mc_username,
+                "about": self.children[1].value,
+                "timezone-age": self.children[2].value,
+                "playtime": self.children[1].value,
+                "playstyle": self.children[1].value,
+                "discord-id": interaction.user.id,
+            }
+
+            create_application(application_document)
+
+            channel = bot.get_channel(APPLICATION_CHANNEL_ID)
+            if channel:
+                logger.info("New application created")
+                logger.info(embed.to_dict())
+                await channel.send(
+                    embeds=[embed],
+                    view=DecisionView(
+                        user_id=interaction.user.id, mc_username=mc_username
+                    ),
+                )
+
+                await interaction.response.send_message(
+                    "Thanks for filling out the application!", ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    "Something went wrong. Please contact staff for help.",
+                    ephemeral=True,
+                )
+        else:
+            await interaction.response.send_message(
+                "Minecraft username was invalid. Please fill out the application again.",
+                ephemeral=True,
+            )
 
 
 class ApplicationView(discord.ui.View):
@@ -120,9 +155,10 @@ class ApplicationView(discord.ui.View):
 
 
 class DecisionView(discord.ui.View):
-    def __init__(self, user_id) -> None:
+    def __init__(self, user_id, mc_username) -> None:
         super().__init__()
         self.user_id = user_id
+        self.mc_username = mc_username
 
     async def disable_buttons(self):
         for item in self.children:
@@ -136,8 +172,12 @@ class DecisionView(discord.ui.View):
         role = discord.utils.get(guild.roles, name="Member")
 
         if role and user:
+            await whitelist_user(self.mc_username)
+
             await user.add_roles(role)
-            await user.send("Thank you for applying! You have been accepted.")
+            await user.send(
+                f"Thank you for applying! You have been accepted and added to the whitelist. The IP address of the server is `{RCON_HOST}`"
+            )
             await interaction.response.send_message(f"{user.name} has been accepted.")
         else:
             await interaction.response.send_message("User or role not found.")
@@ -163,4 +203,82 @@ async def application(ctx: discord.ApplicationContext):
     await ctx.send_modal(modal)
 
 
-bot.run(os.getenv("TOKEN"))
+@bot.command(description="List all usernames in applications.")
+@commands.has_permissions(administrator=True)
+async def view_applications(ctx: discord.ApplicationContext):
+    usernames = get_users()
+    if usernames:
+        await ctx.response.send_message(
+            view=ApplicationSelectionView(usernames=usernames)
+        )
+    else:
+        await ctx.response.send_message("No applicants found.")
+
+
+@view_applications.error
+async def view_applications_error(ctx: discord.ApplicationContext, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.response.send_message(
+            "You do not have permission to use this command.", ephemeral=True
+        )
+
+
+class ApplicationSelection(discord.ui.Select):
+    def __init__(self, usernames: dict):
+        self.usernames = usernames
+        select_options = [
+            discord.SelectOption(
+                label=str(bot.get_user(user_id).name),
+                value=str(user_id),
+                description=username,
+            )
+            for user_id, username in usernames.items()
+        ]
+
+        super().__init__(
+            placeholder="Select an application",
+            min_values=1,
+            max_values=1,
+            options=select_options,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        user_id = int(self.values[0])
+        mc_username = self.usernames[user_id]
+        res: dict = get_application_by_mc(mc_username)["documents"][0]
+        logger.info(res)
+
+        embed = discord.Embed(title=f"{mc_username}'s Application", color=EMBED_COLOR)
+        embed_data = {
+            "What is your Minecraft username?": res["username"],
+            "Tell us a little bit about yourself.": res["about"],
+            "What is your time zone and your age?": res["timezone-age"],
+            "How long have you been playing Minecraft?": res["playtime"],
+            "What type of playstyle are you?": res["playstyle"],
+        }
+
+        for name, value in embed_data.items():
+            embed.add_field(name=name, value=value)
+
+        embed.set_footer(text="Chronos Helper | Made by 𝝌𝘾𝗵𝗶ỺỺ𝝌 and wavefire_")
+        embed.set_author(
+            name=bot.user.name,
+            icon_url=bot.user.avatar.url if bot.user.avatar else None,
+        )
+
+        await interaction.response.send_message(
+            embeds=[embed],
+            view=DecisionView(
+                user_id=user_id,
+                mc_username=mc_username,
+            ),
+        )
+
+
+class ApplicationSelectionView(discord.ui.View):
+    def __init__(self, usernames):
+        super().__init__()
+        self.add_item(ApplicationSelection(usernames))
+
+
+bot.run(TOKEN)

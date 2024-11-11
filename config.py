@@ -1,0 +1,16 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TOKEN = os.getenv("TOKEN")
+APPLICATION_CHANNEL_ID = int(os.getenv("APPLICATION_CHANNEL_ID"))
+CONSOLE_CHANNEL_ID = int(os.getenv("CONSOLE_CHANNEL_ID"))
+RCON_HOST = os.getenv("RCON_HOST")
+RCON_PORT = int(os.getenv("RCON_PORT"))
+RCON_PASSWORD = os.getenv("RCON_PASSWORD")
+APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT")
+APPWRITE_API_KEY = os.getenv("APPWRITE_API_KEY")
+APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID")
+APPWRITE_DB_ID = os.getenv("APPWRITE_DB_ID")
+APPWRITE_COLLECTION_ID = os.getenv("APPWRITE_COLLECTION_ID")
