@@ -1,6 +1,5 @@
 import logging
 import discord
-from discord.ui.item import Item
 from discord.ext import commands
 from dotenv import load_dotenv
 from config import *
@@ -112,8 +111,8 @@ class ApplicationModal(discord.ui.Modal):
                 "username": mc_username,
                 "about": self.children[1].value,
                 "timezone-age": self.children[2].value,
-                "playtime": self.children[1].value,
-                "playstyle": self.children[1].value,
+                "playtime": self.children[3].value,
+                "playstyle": self.children[4].value,
                 "discord-id": interaction.user.id,
             }
 
@@ -170,7 +169,6 @@ class DecisionView(discord.ui.View):
 
         if role and user:
             await whitelist_user(self.mc_username)
-
             await user.add_roles(role)
             await user.send(
                 f"Thank you for applying! You have been accepted and added to the whitelist. The IP address of the server is `{RCON_HOST}`"

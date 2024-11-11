@@ -44,7 +44,7 @@ def get_users() -> dict:
         return []
 
 
-def get_application_by_mc(username: str):
+def get_application_by_mc(username: str) -> dict:
     try:
         res = database.list_documents(
             database_id=APPWRITE_DB_ID,
@@ -55,3 +55,16 @@ def get_application_by_mc(username: str):
         return res
     except Exception as e:
         logger.error("Error searching document: %s", e)
+
+
+def delete_application_by_mc(username: str):
+    try:
+        res = database.delete_document(
+            database_id=APPWRITE_DB_ID,
+            collection_id=APPWRITE_COLLECTION_ID,
+            document_id=...,
+        )
+        logger.info("Deleted document: %s", res)
+        return res
+    except Exception as e:
+        logger.error("Error deleting document: %s", e)
