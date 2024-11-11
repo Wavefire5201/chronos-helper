@@ -1,5 +1,4 @@
 import logging
-import asyncio
 from config import *
 from appwrite.client import Client
 from appwrite.services.databases import Databases

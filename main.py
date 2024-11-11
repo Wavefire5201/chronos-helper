@@ -1,10 +1,7 @@
 import logging
-import datetime
-from discord.ui.item import Item
-import requests
 import discord
+from discord.ui.item import Item
 from discord.ext import commands
-from rcon.source import rcon
 from dotenv import load_dotenv
 from config import *
 from utils import *
