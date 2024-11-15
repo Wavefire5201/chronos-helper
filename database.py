@@ -59,10 +59,11 @@ def get_application_by_mc(username: str) -> dict:
 
 def delete_application_by_mc(username: str):
     try:
+        id = get_application_by_mc(username)["documents"][0]["$id"]
         res = database.delete_document(
             database_id=APPWRITE_DB_ID,
             collection_id=APPWRITE_COLLECTION_ID,
-            document_id=...,
+            document_id=id,
         )
         logger.info("Deleted document: %s", res)
         return res

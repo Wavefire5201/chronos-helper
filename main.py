@@ -23,7 +23,7 @@ EMBED_COLOR = discord.Color.from_rgb(51, 46, 185)
 
 @bot.event
 async def on_ready():
-    logger.info("Bot has successfully started. Logged in as {bot.user}")
+    logger.info(f"Bot has successfully started. Logged in as {bot.user}")
 
 
 @bot.command(description="List of commands")
@@ -113,7 +113,7 @@ class ApplicationModal(discord.ui.Modal):
 
         if await check_minecraft_user(mc_username):
             application_document = {
-                "username": mc_username,
+                "username": await sanitize_minecraft_user(mc_username),
                 "about": self.children[1].value,
                 "timezone-age": self.children[2].value,
                 "playtime": self.children[3].value,
@@ -196,6 +196,17 @@ class DecisionView(discord.ui.View):
         await self.disable_buttons()
         await interaction.message.edit(view=self)
 
+    @discord.ui.button(label="Delete", style=discord.ButtonStyle.blurple)
+    async def delete_button_callback(self, button, interaction):
+        user = bot.get_user(self.user_id)
+        delete_application_by_mc(self.mc_username)
+        await interaction.response.send_message(
+            f"{user.name}'s application has been deleted."
+        )
+
+        await self.disable_buttons()
+        await interaction.message.edit(view=self)
+
 
 @bot.command(description="Start a new application.")
 async def application(ctx: discord.ApplicationContext):
@@ -207,6 +218,11 @@ async def application(ctx: discord.ApplicationContext):
 @commands.has_permissions(administrator=True)
 async def view_applications(ctx: discord.ApplicationContext):
     usernames = get_users()
+    whitelisted_users = await get_whitelist()
+    for id in list(usernames.keys()):
+        user = usernames[id]
+        if user in whitelisted_users or bot.get_user(id) is None:
+            usernames.pop(id)
     if usernames:
         await ctx.response.send_message(
             view=ApplicationSelectionView(usernames=usernames)
@@ -228,11 +244,12 @@ class ApplicationSelection(discord.ui.Select):
         self.usernames = usernames
         select_options = [
             discord.SelectOption(
-                label=str(bot.get_user(user_id).name),
+                label=(bot.get_user(user_id).name),
                 value=str(user_id),
                 description=username,
             )
             for user_id, username in usernames.items()
+            if bot.get_user(user_id) is not None
         ]
 
         super().__init__(
@@ -248,7 +265,9 @@ class ApplicationSelection(discord.ui.Select):
         res: dict = get_application_by_mc(mc_username)["documents"][0]
         logger.info(res)
 
-        embed = discord.Embed(title=f"{mc_username}'s Application", color=EMBED_COLOR)
+        embed = discord.Embed(
+            title=f"{bot.get_user(user_id).name}'s Application", color=EMBED_COLOR
+        )
         embed_data = {
             "What is your Minecraft username?": res["username"],
             "Tell us a little bit about yourself.": res["about"],

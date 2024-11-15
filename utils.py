@@ -13,6 +13,11 @@ async def check_minecraft_user(username: str) -> bool:
     return "id" in re.json()
 
 
+async def sanitize_minecraft_user(username: str) -> str:
+    re = requests.get(f"https://api.mojang.com/users/profiles/minecraft/{username}")
+    return re.json()["name"]
+
+
 async def whitelist_user(username: str) -> None:
     command = f"whitelist add {username}"
     res = await rcon(
