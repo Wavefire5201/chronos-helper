@@ -23,7 +23,7 @@ EMBED_COLOR = discord.Color.from_rgb(51, 46, 185)
 
 @bot.event
 async def on_ready():
-    logger.info(f"Bot is ready. Logged in as {bot.user}")
+    logger.info("Bot has successfully started. Logged in as {bot.user}")
 
 
 @bot.command(description="List of commands")
@@ -33,6 +33,11 @@ async def help(ctx: discord.ApplicationContext):
     )
     embed.add_field(
         name="**/application**", value="Start a new application.", inline=False
+    )
+    embed.add_field(
+        name="**/view_applications**",
+        value="View all current applications.",
+        inline=False,
     )
     embed.set_footer(text="Chronos Helper | Made by 𝝌𝘾𝗵𝗶ỺỺ𝝌 and wavefire_")
     embed.set_author(

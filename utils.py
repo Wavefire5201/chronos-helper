@@ -14,11 +14,23 @@ async def check_minecraft_user(username: str) -> bool:
 
 
 async def whitelist_user(username: str) -> None:
+    command = f"whitelist add {username}"
     res = await rcon(
-        f"whitelist add {username}",
+        command,
         host=RCON_HOST,
         port=RCON_PORT,
         passwd=RCON_PASSWORD,
     )
-    logger.info(f"Added {username} to whitelist.")
     logger.info(res)
+
+
+async def get_whitelist() -> list:
+    command = f"whitelist list"
+    res = await rcon(
+        command,
+        host=RCON_HOST,
+        port=RCON_PORT,
+        passwd=RCON_PASSWORD,
+    )
+    logger.info(res)
+    return res.split(":")[1].strip().split(", ")
