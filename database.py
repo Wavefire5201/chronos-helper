@@ -32,6 +32,7 @@ def get_users() -> dict:
         res = database.list_documents(
             database_id=APPWRITE_DB_ID,
             collection_id=APPWRITE_COLLECTION_ID,
+            queries=[Query.limit(500)],
         )
         usernames = {
             document["discord-id"]: document["username"]

@@ -20,6 +20,7 @@ async def sanitize_minecraft_user(username: str) -> str:
 
 async def whitelist_user(username: str) -> None:
     command = f"whitelist add {username}"
+    logger.info(f"Ran {command}")
     res = await rcon(
         command,
         host=RCON_HOST,
